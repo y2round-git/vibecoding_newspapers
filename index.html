@@ -1,0 +1,2658 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>남초일보 (Gunsan Nam Elemetary Newspaper) - 실제 지면신문 편집기</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Batang:wght@400;700&family=Jua&family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+KR:wght@400;600;700;900&family=Playfair+Display:ital,wght@0,600;0,800;0,900;1,400;1,700&family=Song+Myung&family=UnifrakturMaguntia&display=swap" rel="stylesheet">
+  <!-- html2pdf.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <style>
+    :root {
+      --ink-black: #1b1917;
+      --ink-dark: #2c2925;
+      --ink-muted: #57524a;
+      --rule-color: #2b2823;
+      --rule-light: #8c8478;
+      --paper-base: #efe9dc;
+      --paper-deep: #e5dccb;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background-color: #262421;
+      background-image: radial-gradient(#38342f 1px, transparent 1px);
+      background-size: 20px 20px;
+      color: #f8fafc;
+      min-height: 100vh;
+    }
+
+    /* ==================== 1. 시작 모달 (신문 형식 선택 화면) ==================== */
+    .welcome-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 14, 12, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      transition: opacity 0.25s ease;
+    }
+
+    .welcome-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .welcome-modal {
+      background: #f5f0e6;
+      color: #1c1917;
+      max-width: 1040px;
+      width: 100%;
+      border-radius: 16px;
+      border: 2px solid #44403c;
+      padding: 36px 34px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.65);
+      text-align: center;
+      max-height: 94vh;
+      overflow-y: auto;
+    }
+
+    .welcome-badge {
+      display: inline-block;
+      background: #292524;
+      color: #fef3c7;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 5px 16px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+      letter-spacing: 0.05em;
+    }
+
+    .welcome-title {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 2.05rem;
+      font-weight: 900;
+      color: #1c1917;
+      margin-bottom: 8px;
+      letter-spacing: -0.03em;
+    }
+
+    .welcome-subtitle {
+      font-size: 1rem;
+      color: #57534e;
+      margin-bottom: 28px;
+      line-height: 1.55;
+    }
+
+    .theme-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 28px;
+      text-align: left;
+    }
+
+    @media (max-width: 880px) {
+      .theme-cards {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .theme-card {
+      border: 2px solid #a8a29e;
+      border-radius: 10px;
+      padding: 18px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: #ede6d6;
+      box-shadow: inset 0 0 24px rgba(139, 119, 90, 0.12);
+    }
+
+    .theme-card:hover {
+      transform: translateY(-4px);
+      border-color: #44403c;
+      box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
+    }
+
+    .theme-card.selected {
+      border: 3px solid #991b1b;
+      background: #f7f2e7;
+      box-shadow: 0 0 0 4px rgba(153, 27, 27, 0.18);
+    }
+
+    .theme-card-preview {
+      height: 142px;
+      border-radius: 6px;
+      margin-bottom: 14px;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: #efe8d8;
+      border: 1px solid #c7bda8;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 모달 내 각 신문 헤드라인 미니 프리뷰 */
+    .preview-wp .wp-eng {
+      font-family: 'UnifrakturMaguntia', serif;
+      font-size: 1.28rem;
+      color: #111;
+      line-height: 1.05;
+      text-shadow: 1.5px 1px 0 #efe8d8, 2.5px 2px 0 #333;
+      margin-bottom: 3px;
+    }
+    .preview-wp .wp-kor {
+      font-family: 'Song Myung', 'Noto Serif KR', serif;
+      font-size: 1.35rem;
+      font-weight: 900;
+      color: #111;
+      letter-spacing: 0.28em;
+    }
+    .preview-wp .wp-motto {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: 0.72rem;
+      color: #333;
+      margin: 4px 0 6px 0;
+    }
+    .preview-wp .wp-nav {
+      width: 100%;
+      border-top: 1px solid #222;
+      border-bottom: 2px double #222;
+      font-size: 0.58rem;
+      font-weight: 700;
+      color: #111;
+      padding: 3px 0;
+      text-align: center;
+      letter-spacing: 0.04em;
+    }
+
+    .preview-kids {
+      background: #f2ead9;
+    }
+    .preview-kids .kids-kicker {
+      background: #b91c1c;
+      color: #fef3c7;
+      font-size: 0.65rem;
+      font-weight: 800;
+      padding: 2px 10px;
+      border-radius: 99px;
+      margin-bottom: 4px;
+    }
+    .preview-kids .kids-title {
+      font-family: 'Jua', sans-serif;
+      font-size: 1.75rem;
+      color: #1e3a8a;
+      text-shadow: 2px 2px 0 #f59e0b;
+      letter-spacing: 0.04em;
+      line-height: 1.05;
+      white-space: nowrap;
+    }
+    .preview-kids .kids-bar {
+      margin-top: 6px;
+      width: 100%;
+      background: #d97706;
+      color: #fff;
+      font-size: 0.63rem;
+      font-weight: 700;
+      padding: 3px 6px;
+      text-align: center;
+      border-radius: 4px;
+    }
+
+    .preview-khan {
+      border-top: 5px solid #172554;
+      align-items: stretch;
+    }
+    .preview-khan .khan-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #111;
+      padding-bottom: 6px;
+      margin-bottom: 6px;
+      gap: 6px;
+    }
+    .preview-khan .khan-title {
+      font-family: 'Song Myung', 'Noto Serif KR', serif;
+      font-size: 1.45rem;
+      font-weight: 900;
+      color: #111;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .preview-khan .khan-ear {
+      border: 1px solid #333;
+      padding: 3px 6px;
+      font-size: 0.6rem;
+      line-height: 1.25;
+      background: #e6decb;
+      color: #111;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .preview-khan .khan-sub {
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: #172554;
+      text-align: left;
+    }
+
+    .theme-card-num {
+      font-size: 0.78rem;
+      font-weight: 800;
+      color: #991b1b;
+      margin-bottom: 3px;
+    }
+
+    .theme-card-title {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: #1c1917;
+      margin-bottom: 6px;
+    }
+
+    .theme-card-desc {
+      font-size: 0.87rem;
+      color: #44403c;
+      line-height: 1.48;
+      margin-bottom: 10px;
+    }
+
+    .theme-card-ref {
+      font-size: 0.75rem;
+      color: #57534e;
+      background: #e2d9c5;
+      padding: 5px 9px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+
+    .start-btn {
+      background: #991b1b;
+      color: #fef3c7;
+      border: 2px solid #450a0a;
+      font-family: 'Noto Serif KR', serif;
+      font-size: 1.15rem;
+      font-weight: 900;
+      padding: 15px 46px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+      transition: all 0.2s;
+    }
+
+    .start-btn:hover {
+      background: #7f1d1d;
+      transform: translateY(-2px);
+    }
+
+    /* ==================== 2. 상단 컨트롤 바 ==================== */
+    .topbar {
+      background: #181614;
+      border-bottom: 1px solid #3f3a34;
+      color: #f5f0e6;
+      padding: 11px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .brand-logo {
+      font-family: 'Noto Serif KR', serif;
+      font-weight: 900;
+      font-size: 1.18rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #fef3c7;
+    }
+
+    .brand-logo span {
+      background: #991b1b;
+      color: #fef3c7;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 0.74rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+
+    .theme-switcher {
+      display: flex;
+      background: #292524;
+      padding: 4px;
+      border-radius: 8px;
+      border: 1px solid #44403c;
+      gap: 4px;
+    }
+
+    .theme-tab {
+      border: none;
+      background: transparent;
+      color: #d6d3d1;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 6px 13px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .theme-tab:hover {
+      color: #fff;
+    }
+
+    .theme-tab.active {
+      background: #b45309;
+      color: #fff;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 0.86rem;
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-outline {
+      background: #292524;
+      color: #e7e5e4;
+      border: 1px solid #57534e;
+    }
+
+    .btn-outline:hover {
+      background: #44403c;
+    }
+
+    .btn-print {
+      background: #15803d;
+      color: #ffffff;
+    }
+
+    .btn-print:hover {
+      background: #166534;
+    }
+
+    .btn-pdf {
+      background: #b91c1c;
+      color: #ffffff;
+    }
+
+    .btn-pdf:hover {
+      background: #991b1b;
+    }
+
+    /* ==================== 3. 메인 워크스페이스 ==================== */
+    .workspace {
+      display: grid;
+      grid-template-columns: 470px 1fr;
+      gap: 24px;
+      max-width: 1620px;
+      margin: 0 auto;
+      padding: 22px;
+      align-items: start;
+    }
+
+    @media (max-width: 1220px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 좌측 편집기 패널 */
+    .editor-panel {
+      background: #f5f0e6;
+      color: #1c1917;
+      border-radius: 12px;
+      border: 1px solid #78716c;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 15px 18px;
+      background: #e7decb;
+      border-bottom: 1px solid #c7bda8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .panel-title {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 1.05rem;
+      font-weight: 900;
+      color: #1c1917;
+    }
+
+    .panel-body {
+      padding: 16px 18px;
+      max-height: calc(100vh - 140px);
+      overflow-y: auto;
+    }
+
+    .config-box {
+      background: #ebe3d2;
+      border: 1px solid #c7bda8;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+
+    .config-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 9px;
+    }
+
+    .config-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: #44403c;
+      margin-bottom: 4px;
+    }
+
+    .input-text, .select-input {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid #a8a29e;
+      border-radius: 5px;
+      font-family: inherit;
+      font-size: 0.87rem;
+      background: #faf7f0;
+      color: #1c1917;
+    }
+
+    .input-text:focus, .textarea-input:focus, .select-input:focus {
+      outline: none;
+      border-color: #991b1b;
+      box-shadow: 0 0 0 2px rgba(153, 27, 27, 0.15);
+    }
+
+    .entries-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .entry-card {
+      border: 1px solid #b8ae99;
+      border-radius: 8px;
+      padding: 12px;
+      background: #faf6ed;
+      position: relative;
+    }
+
+    .entry-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      gap: 6px;
+    }
+
+    .entry-badge {
+      background: #292524;
+      color: #fef3c7;
+      font-weight: 800;
+      font-size: 0.76rem;
+      padding: 4px 9px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .entry-badge.lead {
+      background: #991b1b;
+    }
+
+    .entry-header-inputs {
+      display: flex;
+      gap: 6px;
+      flex: 1;
+    }
+
+    .btn-fetch {
+      background: #991b1b;
+      color: #fef3c7;
+      border: none;
+      border-radius: 4px;
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+
+    .btn-fetch:hover {
+      background: #7f1d1d;
+    }
+
+    .btn-remove {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+      width: 26px;
+      height: 26px;
+      border-radius: 4px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .entry-row {
+      margin-bottom: 7px;
+    }
+
+    .entry-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .url-input-group {
+      display: flex;
+      gap: 5px;
+    }
+
+    /* 추출된 사진 미니 미리보기 바 */
+    .extracted-photo-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 6px;
+      padding: 6px 8px;
+      background: #efe8d8;
+      border: 1px solid #c7bda8;
+      border-radius: 5px;
+      font-size: 0.75rem;
+      color: #292524;
+    }
+
+    .extracted-photo-bar img {
+      width: 44px;
+      height: 32px;
+      object-fit: cover;
+      border-radius: 3px;
+      border: 1px solid #78716c;
+      flex-shrink: 0;
+    }
+
+    .extracted-photo-info {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 700;
+      color: #15803d;
+    }
+
+    .btn-mini {
+      background: #e7decb;
+      border: 1px solid #a8a29e;
+      color: #292524;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 7px;
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn-mini:hover {
+      background: #d6cbb5;
+    }
+
+    .textarea-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #a8a29e;
+      border-radius: 5px;
+      font-family: inherit;
+      font-size: 0.87rem;
+      background: #faf7f0;
+      color: #1c1917;
+      resize: vertical;
+      min-height: 68px;
+      line-height: 1.45;
+    }
+
+    .add-entry-btn {
+      width: 100%;
+      margin-top: 14px;
+      padding: 12px;
+      background: #e7decb;
+      color: #292524;
+      border: 2px dashed #78716c;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.92rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .add-entry-btn:hover {
+      background: #dcd0b8;
+      border-color: #292524;
+    }
+
+    /* ==================== 4. 우측 A4 지면신문 미리보기 ==================== */
+    .preview-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: auto;
+      padding-bottom: 40px;
+    }
+
+    .preview-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 210mm;
+      max-width: 100%;
+      margin-bottom: 12px;
+      background: #1c1917;
+      color: #e7e5e4;
+      padding: 9px 15px;
+      border-radius: 8px;
+      border: 1px solid #44403c;
+      font-size: 0.84rem;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* =========================================================================
+       실제 A4 지면신문 용지 (Vintage Newsprint Paper Texture & Dimensions)
+       ========================================================================= */
+    .a4-sheet {
+      width: 210mm;
+      height: 297mm;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 9mm 11mm 8.5mm 11mm;
+      color: var(--ink-black);
+      background-color: #efe8d8;
+      background-image:
+        radial-gradient(ellipse at center, rgba(255,252,245,0.35) 0%, rgba(212,199,174,0.42) 100%),
+        repeating-linear-gradient(0deg, rgba(0,0,0,0.012) 0px, rgba(0,0,0,0.012) 1px, transparent 1px, transparent 3px),
+        repeating-linear-gradient(90deg, rgba(80,60,30,0.015) 0px, rgba(80,60,30,0.015) 1px, transparent 1px, transparent 4px);
+      box-shadow:
+        0 25px 60px rgba(0, 0, 0, 0.65),
+        inset 0 0 38px rgba(120, 95, 60, 0.22),
+        inset 0 0 4px rgba(90, 70, 40, 0.35);
+    }
+
+    .a4-sheet.paper-vintage {
+      background-color: #e8dec8;
+      box-shadow:
+        0 25px 60px rgba(0, 0, 0, 0.65),
+        inset 0 0 55px rgba(110, 82, 42, 0.34),
+        inset 0 0 8px rgba(80, 58, 28, 0.4);
+    }
+
+    .a4-sheet.paper-light {
+      background-color: #f6f2e9;
+      box-shadow:
+        0 25px 60px rgba(0, 0, 0, 0.65),
+        inset 0 0 22px rgba(140, 120, 85, 0.12);
+    }
+
+    .a4-sheet * {
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ==================== 신문별 고유 헤드라인(Masthead) 디자인 ==================== */
+
+    /* --- [1] 워싱턴 포스트 (The Washington Post) 정통 지면 제호 --- */
+    .masthead-wp {
+      text-align: center;
+      margin-bottom: 2.8mm;
+      flex-shrink: 0;
+    }
+
+    .masthead-wp .wp-top-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'Playfair Display', 'Noto Serif KR', serif;
+      font-size: 7.5pt;
+      color: #2b2823;
+      border-bottom: 1px solid #2b2823;
+      padding-bottom: 1mm;
+      margin-bottom: 1.8mm;
+      letter-spacing: 0.03em;
+    }
+
+    .masthead-wp .wp-main-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 3mm;
+      padding: 0.5mm 0;
+    }
+
+    .masthead-wp .wp-ear-box {
+      width: 34mm;
+      border: 1px solid #2b2823;
+      padding: 1.4mm 2mm;
+      font-family: 'Noto Serif KR', serif;
+      font-size: 6.8pt;
+      line-height: 1.3;
+      text-align: left;
+      background: rgba(255, 255, 255, 0.18);
+      flex-shrink: 0;
+    }
+
+    .masthead-wp .wp-ear-box strong {
+      display: block;
+      font-size: 7.2pt;
+      border-bottom: 0.5px solid #555;
+      margin-bottom: 0.7mm;
+      padding-bottom: 0.4mm;
+    }
+
+    .masthead-wp .wp-center-titles {
+      flex: 1;
+      text-align: center;
+      min-width: 0;
+    }
+
+    .masthead-wp .wp-blackletter {
+      font-family: 'UnifrakturMaguntia', serif;
+      font-size: 22.5pt;
+      line-height: 1;
+      color: #141210;
+      letter-spacing: 0.01em;
+      text-shadow: 1.2px 0.8px 0 #efe8d8, 2.2px 1.6px 0 #141210;
+      margin-bottom: 1mm;
+      white-space: nowrap;
+    }
+
+    .masthead-wp .wp-kor-title {
+      font-family: 'Song Myung', 'Noto Serif KR', serif;
+      font-size: 22pt;
+      font-weight: 900;
+      letter-spacing: 0.38em;
+      color: #141210;
+      line-height: 1.05;
+      margin-left: 0.38em;
+      white-space: nowrap;
+    }
+
+    .masthead-wp .wp-motto {
+      font-family: 'Playfair Display', 'Noto Serif KR', serif;
+      font-style: italic;
+      font-size: 8.5pt;
+      color: #2c2925;
+      margin-top: 0.8mm;
+      margin-bottom: 1.5mm;
+    }
+
+    .masthead-wp .wp-section-bar {
+      border-top: 1.5px solid #141210;
+      border-bottom: 3px double #141210;
+      padding: 1.1mm 1mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 7.2pt;
+      font-weight: 800;
+      color: #141210;
+      letter-spacing: -0.01em;
+    }
+
+    .masthead-wp .wp-section-bar span.divider {
+      color: #78716c;
+      font-weight: 400;
+    }
+
+    /* --- [2] 어린이 00신문 (kids.donga.com) 지면 제호 --- */
+    .masthead-kids {
+      margin-bottom: 2.8mm;
+      flex-shrink: 0;
+    }
+
+    .masthead-kids .kids-top-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #1e3a8a;
+      color: #fef3c7;
+      padding: 1mm 3mm;
+      font-size: 7.5pt;
+      font-weight: 700;
+      border-radius: 3px 3px 0 0;
+    }
+
+    .masthead-kids .kids-main-box {
+      border: 2px solid #1e3a8a;
+      border-top: none;
+      background: rgba(255, 251, 235, 0.55);
+      padding: 2mm 3.5mm;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 3mm;
+    }
+
+    .masthead-kids .kids-mascot-ear {
+      border: 1.5px dashed #b45309;
+      background: #fef3c7;
+      border-radius: 6px;
+      padding: 1.5mm 2.5mm;
+      font-size: 7pt;
+      line-height: 1.3;
+      color: #78350f;
+      font-weight: 700;
+      width: 38mm;
+      flex-shrink: 0;
+    }
+
+    .masthead-kids .kids-title-wrap {
+      text-align: center;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .masthead-kids .kids-sub-pill {
+      display: inline-block;
+      background: #b91c1c;
+      color: #fffbeb;
+      font-size: 7pt;
+      font-weight: 800;
+      padding: 0.5mm 3mm;
+      border-radius: 99px;
+      margin-bottom: 0.8mm;
+      letter-spacing: 0.03em;
+    }
+
+    .masthead-kids .kids-main-title {
+      font-family: 'Jua', 'Black Han Sans', sans-serif;
+      font-size: 35pt;
+      color: #1e3a8a;
+      line-height: 1;
+      letter-spacing: 0.14em;
+      margin-left: 0.14em;
+      text-shadow: 2px 2px 0 #fbbf24, 3px 3px 0 #1c1917;
+      white-space: nowrap;
+    }
+
+    .masthead-kids .kids-eng-sub {
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 6.8pt;
+      font-weight: 800;
+      color: #1e3a8a;
+      letter-spacing: 0.06em;
+      margin-top: 0.6mm;
+      white-space: nowrap;
+    }
+
+    .masthead-kids .kids-section-ribbon {
+      margin-top: 1.2mm;
+      background: #d97706;
+      color: #fffbeb;
+      border: 1.5px solid #1c1917;
+      padding: 1mm 3mm;
+      display: flex;
+      justify-content: space-around;
+      font-size: 7.5pt;
+      font-weight: 800;
+      border-radius: 4px;
+    }
+
+    /* --- [3] 00신문 (khan.co.kr) 정통 한국 일간지 1면 제호 --- */
+    .masthead-khan {
+      margin-bottom: 2.8mm;
+      flex-shrink: 0;
+    }
+
+    .masthead-khan .khan-top-bar {
+      border-top: 3.5px solid #172554;
+      border-bottom: 1px solid #1c1917;
+      padding: 0.8mm 0;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7.3pt;
+      font-weight: 700;
+      color: #1c1917;
+    }
+
+    .masthead-khan .khan-body-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2mm 0;
+      border-bottom: 2.5px solid #1c1917;
+      gap: 3.5mm;
+    }
+
+    .masthead-khan .khan-title-block {
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .masthead-khan .khan-kor-logo {
+      font-family: 'Song Myung', 'Noto Serif KR', serif;
+      font-size: 26pt;
+      font-weight: 900;
+      color: #111;
+      letter-spacing: 0.1em;
+      line-height: 1;
+      white-space: nowrap;
+      text-shadow: 1px 1px 0 rgba(0,0,0,0.12);
+    }
+
+    .masthead-khan .khan-eng-sub {
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 6.4pt;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      color: #172554;
+      margin-top: 1mm;
+      white-space: nowrap;
+    }
+
+    .masthead-khan .khan-headline-preview-box {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      border-left: 2px solid #172554;
+      padding-left: 2.8mm;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8mm;
+    }
+
+    .masthead-khan .khan-preview-item {
+      font-size: 7.5pt;
+      line-height: 1.25;
+      color: #1c1917;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: left;
+    }
+
+    .masthead-khan .khan-preview-item strong {
+      color: #991b1b;
+      margin-right: 1mm;
+    }
+
+    .masthead-khan .khan-ear-ad {
+      width: 36mm;
+      border: 1.5px solid #1c1917;
+      padding: 1.5mm 2mm;
+      background: rgba(23, 37, 84, 0.06);
+      font-size: 7pt;
+      line-height: 1.3;
+      flex-shrink: 0;
+      text-align: left;
+    }
+
+    .masthead-khan .khan-dateline-strip {
+      border-bottom: 1px solid #1c1917;
+      padding: 0.9mm 1mm;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7.4pt;
+      font-weight: 700;
+      background: rgba(0,0,0,0.03);
+    }
+
+    /* =========================================================================
+       실제 지면신문 비대칭 다단 편집 레이아웃 (Newspaper 12-Column Front Page Grid)
+       ========================================================================= */
+    .np-frontpage {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      grid-template-rows: 1.26fr 1.04fr 0.92fr;
+      gap: 0;
+      border-top: 1px solid var(--rule-color);
+      border-bottom: 2px solid var(--rule-color);
+      overflow: hidden;
+    }
+
+    .np-slot {
+      padding: 2.2mm 2.6mm;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      border-right: 1px solid var(--rule-color);
+      border-bottom: 1px solid var(--rule-color);
+      text-align: left;
+    }
+
+    .np-slot.no-right-border {
+      border-right: none;
+    }
+
+    .np-slot.no-bottom-border {
+      border-bottom: none;
+    }
+
+    .slot-lead {
+      grid-column: 1 / 9;
+      grid-row: 1 / 2;
+      padding-left: 1mm;
+    }
+
+    .slot-side-top {
+      grid-column: 9 / 13;
+      grid-row: 1 / 2;
+      background: rgba(0, 0, 0, 0.03);
+      padding-right: 1mm;
+    }
+
+    .slot-mid-left {
+      grid-column: 1 / 6;
+      grid-row: 2 / 3;
+      padding-left: 1mm;
+    }
+
+    .slot-mid-center {
+      grid-column: 6 / 10;
+      grid-row: 2 / 3;
+    }
+
+    .slot-mid-right {
+      grid-column: 10 / 13;
+      grid-row: 2 / 3;
+      padding-right: 1mm;
+    }
+
+    .slot-bot-left {
+      grid-column: 1 / 10;
+      grid-row: 3 / 4;
+      padding-left: 1mm;
+    }
+
+    .slot-bot-right {
+      grid-column: 10 / 13;
+      grid-row: 3 / 4;
+      background: rgba(0, 0, 0, 0.035);
+      padding-right: 1mm;
+    }
+
+    /* ==================== 신문 기사 내부 타이포그래피 (깔끔한 왼쪽 정렬 고정) ==================== */
+    .kicker-tag {
+      display: inline-block;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 7pt;
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      padding: 0.3mm 1.6mm;
+      margin-bottom: 1mm;
+      border: 1px solid #1c1917;
+      background: #1c1917;
+      color: #efe8d8;
+    }
+
+    .theme-khan .kicker-tag {
+      background: #172554;
+      border-color: #172554;
+    }
+
+    .theme-kids .kicker-tag {
+      background: #b91c1c;
+      border-color: #991b1b;
+      border-radius: 3px;
+    }
+
+    .kicker-outline {
+      background: transparent !important;
+      color: #1c1917 !important;
+    }
+
+    .article-headline {
+      font-family: 'Noto Serif KR', 'Song Myung', serif;
+      font-weight: 900;
+      line-height: 1.22;
+      letter-spacing: -0.02em;
+      color: #141210;
+      margin-bottom: 1.2mm;
+      text-align: left !important;
+      word-break: normal;
+      overflow-wrap: break-word;
+    }
+
+    .theme-khan .article-headline {
+      font-family: 'Noto Sans KR', sans-serif;
+      font-weight: 900;
+    }
+
+    .theme-kids .article-headline {
+      font-family: 'Jua', 'Noto Sans KR', sans-serif;
+      font-weight: 400;
+      color: #1e293b;
+    }
+
+    .article-subhead {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 8pt;
+      font-weight: 700;
+      color: #3f3a34;
+      border-left: 2px solid #2b2823;
+      padding-left: 2mm;
+      margin-bottom: 1.6mm;
+      line-height: 1.32;
+      text-align: left !important;
+      word-break: normal;
+      overflow-wrap: break-word;
+    }
+
+    /* 톱기사 전용 내부 그리드 (보도사진/일러스트 + 본문) */
+    .lead-content-grid {
+      display: grid;
+      grid-template-columns: 43% 57%;
+      gap: 3mm;
+      flex: 1;
+      overflow: hidden;
+      align-items: start;
+    }
+
+    .newspaper-figure {
+      border: 1px solid #2b2823;
+      padding: 1mm;
+      background: rgba(255,255,255,0.25);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 신문 사진 프레임 (톱기사 & 일반 슬롯 공통) */
+    .halftone-img-wrap {
+      width: 100%;
+      height: 32mm;
+      overflow: hidden;
+      position: relative;
+      background: #d6cbb5;
+      border: 0.5px solid #444;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* 2~6번 슬롯에서 URL 사진이 추출되었을 때 보여주는 신문 사진틀 */
+    .slot-photo-box {
+      border: 1px solid #2b2823;
+      padding: 0.8mm;
+      background: rgba(255, 255, 255, 0.25);
+      margin-bottom: 1.4mm;
+      flex-shrink: 0;
+    }
+
+    .slot-photo-box .halftone-img-wrap {
+      height: 20mm;
+    }
+
+    /* 하단 와이드 기사 사진틀 */
+    .wide-with-photo {
+      display: grid;
+      grid-template-columns: 34% 66%;
+      gap: 2.8mm;
+      align-items: start;
+    }
+
+    .wide-with-photo .halftone-img-wrap {
+      height: 22mm;
+    }
+
+    .halftone-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: grayscale(65%) sepia(18%) contrast(1.12);
+    }
+
+    .theme-kids .halftone-img-wrap img {
+      filter: contrast(1.05);
+    }
+
+    .halftone-img-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(0,0,0,0.18) 0.65px, transparent 0.65px);
+      background-size: 2.4px 2.4px;
+      pointer-events: none;
+    }
+
+    .figure-caption {
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 6.4pt;
+      color: #3f3a34;
+      margin-top: 0.7mm;
+      line-height: 1.22;
+      font-weight: 600;
+      text-align: left !important;
+    }
+
+    /* 본문 텍스트: 글자 수에 관계없이 글자 배열이 절대 흩어지지 않도록 왼쪽 정렬 고정! */
+    .article-body {
+      font-family: 'Nanum Myeongjo', 'Noto Serif KR', serif;
+      color: #1f1c18;
+      line-height: 1.48;
+      letter-spacing: -0.01em;
+      text-align: left !important;
+      word-break: normal;
+      overflow-wrap: anywhere;
+      white-space: pre-line;
+      overflow: hidden;
+    }
+
+    .theme-kids .article-body {
+      font-family: 'Noto Sans KR', sans-serif;
+      font-weight: 500;
+    }
+
+    /* 기자 바이라인 & 출처 클리핑 바 */
+    .byline-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+      border-top: 0.5px solid #78716c;
+      padding-top: 1mm;
+      margin-top: 1.2mm;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 7pt;
+      color: #2c2925;
+      flex-shrink: 0;
+    }
+
+    .byline-author {
+      font-weight: 900;
+      color: #141210;
+      white-space: nowrap;
+    }
+
+    .byline-source {
+      font-size: 6.5pt;
+      color: #44403c;
+      background: rgba(0, 0, 0, 0.06);
+      padding: 0.3mm 1.5mm;
+      border-radius: 2px;
+      max-width: 62%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-decoration: none;
+    }
+
+    /* 신문 발문 / 인용구 박스 (왼쪽 정렬로 정돈) */
+    .pull-quote {
+      margin: 1.2mm 0;
+      padding: 1.1mm 2mm;
+      border-top: 1px solid #2b2823;
+      border-bottom: 1px solid #2b2823;
+      border-left: 2.5px solid #991b1b;
+      font-family: 'Song Myung', 'Noto Serif KR', serif;
+      font-size: 8pt;
+      color: #141210;
+      text-align: left !important;
+      line-height: 1.32;
+      background: rgba(0,0,0,0.025);
+      word-break: normal;
+      overflow-wrap: break-word;
+    }
+
+    /* 신문 빈자리 채움 코너 */
+    .filler-box {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .cartoon-frame {
+      border: 1.5px solid #1c1917;
+      background: rgba(255,255,255,0.32);
+      padding: 1.5mm;
+      text-align: center;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      margin: 1mm 0;
+    }
+
+    .barcode-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid #2b2823;
+      padding-top: 1mm;
+      margin-top: 1mm;
+      font-family: monospace;
+      font-size: 6.5pt;
+    }
+
+    .extra-deck {
+      border-bottom: 1px solid var(--rule-color);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(40mm, 1fr));
+      gap: 0;
+      flex-shrink: 0;
+    }
+
+    .np-footer {
+      flex-shrink: 0;
+      padding-top: 1.5mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 7.2pt;
+      font-weight: 700;
+      color: #2c2925;
+    }
+
+    /* ==================== 5. 인쇄 / PDF 전용 미디어 쿼리 ==================== */
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+
+    @media print {
+      html, body {
+        width: 210mm;
+        height: 297mm;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #efe8d8 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .welcome-overlay,
+      .topbar,
+      .editor-panel,
+      .preview-toolbar {
+        display: none !important;
+      }
+
+      .workspace {
+        display: block !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      .preview-container {
+        padding: 0 !important;
+        margin: 0 !important;
+        display: block !important;
+      }
+
+      .a4-sheet {
+        width: 210mm !important;
+        height: 297mm !important;
+        margin: 0 !important;
+        page-break-after: avoid;
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== 1. 시작 화면: 신문 형식 선택 모달 ==================== -->
+  <div id="welcomeOverlay" class="welcome-overlay">
+    <div class="welcome-modal">
+      <div class="welcome-badge">🗞️ 실제 지면신문 편집 시스템 · 제호 '남초일보 (Gunsan Nam Elemetary Newspaper)' 통일</div>
+      <h1 class="welcome-title">어떤 신문 형식으로 발행할까요?</h1>
+      <p class="welcome-subtitle">
+        각 신문사 고유의 <strong>헤드라인(제호) 타이포그래피·단 편집·지면 질감</strong>을 그대로 재현합니다.<br/>
+        빈자리가 생겨도 실제 신문처럼 <strong>원문 기사 클리핑·시사 만평·오늘의 뉴스 브리핑</strong>으로 자연스럽게 채워집니다.
+      </p>
+
+      <div class="theme-cards">
+        <!-- 1. 워싱턴 포스트 -->
+        <div class="theme-card selected" data-theme="wp" onclick="selectWelcomeTheme('wp')">
+          <div>
+            <div class="theme-card-preview preview-wp">
+              <div class="wp-eng">Gunsan Nam Elemetary Newspaper</div>
+              <div class="wp-kor">남초일보</div>
+              <div class="wp-motto">Democracy Dies in Darkness</div>
+              <div class="wp-nav">Election 2026 · Politics · Opinions · Style · Tech · World</div>
+            </div>
+            <div class="theme-card-num">STYLE 01 · 정통 영미권 브로드시트</div>
+            <div class="theme-card-title">워싱턴 포스트 스타일</div>
+            <p class="theme-card-desc">
+              고전 프락투어(Blackletter) 서체와 입체 그림자 제호, <em>“Democracy Dies in Darkness”</em> 슬로건, 상단 섹션 네비게이션 바와 정통 다단 칼럼을 재현합니다.
+            </p>
+          </div>
+          <div class="theme-card-ref">https://www.washingtonpost.com/</div>
+        </div>
+
+        <!-- 2. 어린이 00신문 -->
+        <div class="theme-card" data-theme="kids" onclick="selectWelcomeTheme('kids')">
+          <div>
+            <div class="theme-card-preview preview-kids">
+              <div class="kids-kicker">★ 생각하는 어린이 신문 ★</div>
+              <div class="kids-title">남초일보</div>
+              <div class="kids-bar">Gunsan Nam Elemetary Newspaper</div>
+            </div>
+            <div class="theme-card-num">STYLE 02 · 어린이 시사·교양 지면신문</div>
+            <div class="theme-card-title">어린이 00신문 스타일</div>
+            <p class="theme-card-desc">
+              어린이 지면신문 특유의 입체 타이틀 제호와 귀광고 박스, 배경지식이 쏙쏙 들어오는 핵심 요약 박스와 일러스트 지면 배치를 재현합니다.
+            </p>
+          </div>
+          <div class="theme-card-ref">https://kids.donga.com/</div>
+        </div>
+
+        <!-- 3. 00신문 -->
+        <div class="theme-card" data-theme="khan" onclick="selectWelcomeTheme('khan')">
+          <div>
+            <div class="theme-card-preview preview-khan">
+              <div class="khan-row">
+                <div class="khan-title">남초일보</div>
+                <div class="khan-ear">[오늘의 날씨]<br/>맑음 · 19°C</div>
+              </div>
+              <div class="khan-sub">Gunsan Nam Elemetary Newspaper</div>
+            </div>
+            <div class="theme-card-num">STYLE 03 · 한국 정통 종합일간지 1면</div>
+            <div class="theme-card-title">00신문 스타일</div>
+            <p class="theme-card-desc">
+              좌측 굵은 송체(명조) 제호와 우측 귀광고·주요뉴스 안내박스, 짙은 남색 포인트 보더와 굵직한 고딕 제목이 어우러진 한국 종이신문 1면입니다.
+            </p>
+          </div>
+          <div class="theme-card-ref">https://www.khan.co.kr</div>
+        </div>
+      </div>
+
+      <button class="start-btn" onclick="closeWelcomeModal()">
+        선택한 지면 형식으로 '남초일보' 편집 시작 →
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== 2. 상단 툴바 ==================== -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand-logo">
+        🗞️ 남초일보 조판실 <span>Gunsan Nam Elemetary Newspaper</span>
+      </div>
+      <div class="theme-switcher" role="tablist">
+        <button class="theme-tab active" data-theme="wp" onclick="setTheme('wp')">1. 워싱턴 포스트</button>
+        <button class="theme-tab" data-theme="kids" onclick="setTheme('kids')">2. 어린이 00신문</button>
+        <button class="theme-tab" data-theme="khan" onclick="setTheme('khan')">3. 00신문</button>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button class="btn btn-outline" onclick="openWelcomeModal()">🎨 신문 형식 선택창</button>
+      <button class="btn btn-outline" onclick="loadSampleData()">✨ 예시 기사 채우기</button>
+      <button class="btn btn-print" onclick="window.print()">🖨️ PDF로 인쇄 (고화질 권장)</button>
+      <button class="btn btn-pdf" id="downloadPdfBtn" onclick="downloadPDF()">📥 PDF 파일 다운로드</button>
+    </div>
+  </header>
+
+  <!-- ==================== 3. 메인 작업 공간 ==================== -->
+  <main class="workspace">
+    <!-- 좌측: 학생 기사 링크 및 자기 생각 입력란 -->
+    <section class="editor-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          ✒️ 학생 기사 &amp; 생각 원고 입력 (<span id="entryCountLabel">6</span>명)
+        </div>
+        <button class="btn btn-outline" style="padding: 5px 10px; font-size: 0.76rem;" onclick="clearAllEntries()">
+          빈칸으로 초기화 (자동 신문채움 확인)
+        </button>
+      </div>
+
+      <div class="panel-body">
+        <!-- 지면 옵션 -->
+        <div class="config-box">
+          <div class="config-row">
+            <div>
+              <label class="field-label">신문지 종이 질감 · 색감</label>
+              <select id="paperToneSelect" class="select-input" onchange="updatePaperTone()">
+                <option value="classic" selected>실제 지면신문 미색 (기본)</option>
+                <option value="vintage">옛날 빈티지 신문지 (진한 고서 질감)</option>
+                <option value="light">밝은 신문 용지 (잉크 절약용)</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label">글자 및 헤드라인 크기</label>
+              <select id="fontSizeMode" class="select-input" onchange="renderNewspaper()">
+                <option value="auto" selected>자동 맞춤 (글자 수별 최적 가독성)</option>
+                <option value="large">더 크게 (시원한 제목·본문)</option>
+                <option value="medium">표준 신문 조판 크기</option>
+              </select>
+            </div>
+          </div>
+          <div class="config-row">
+            <div>
+              <label class="field-label">발행 호수 / 학급 표기</label>
+              <input type="text" id="subHeaderInput" class="input-text" value="제2026-10호 · 남초일보 NIE 특별판" oninput="renderNewspaper()" />
+            </div>
+            <div>
+              <label class="field-label">발행일자 표기</label>
+              <input type="text" id="dateLineInput" class="input-text" value="" oninput="renderNewspaper()" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 6명 기본 입력칸 리스트 -->
+        <div id="entriesContainer" class="entries-list"></div>
+
+        <!-- 입력칸 추가 버튼 -->
+        <button class="add-entry-btn" onclick="addEntry()">
+          ➕ 학생 원고 입력칸 추가하기 (URL + 기사 생각 한 세트)
+        </button>
+      </div>
+    </section>
+
+    <!-- 우측: A4 세로 비율 실시간 지면신문 미리보기 -->
+    <section class="preview-container">
+      <div class="preview-toolbar">
+        <div>
+          <strong>📰 A4 세로 실제 지면신문 1면 조판</strong> (왼쪽 정렬 정밀 조판 · URL 기사 사진 자동 추출 삽입)
+        </div>
+        <div style="color: #fde68a; font-size: 0.8rem;">
+          💡 URL을 붙여넣으면 기사 속 사진을 자동으로 추출해 신문에 삽입합니다.
+        </div>
+      </div>
+
+      <!-- 실제 인쇄/PDF 변환 대상 A4 시트 -->
+      <div id="newspaperSheet" class="a4-sheet theme-wp">
+        <!-- JS에서 실시간 렌더링 -->
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let currentTheme = 'wp';
+    const urlFetchTimers = {};
+
+    // 빈자리 발생 시 실제 신문 기사와 교양 코너처럼 채워줄 리얼 뉴스 데이터 풀
+    const fallbackNewsPool = [
+      {
+        kicker: '본지 특집 · 우주과학',
+        author: '편집부 과학팀',
+        title: '지구 궤도 뒤덮은 ‘우주 쓰레기’… 청소 위성 출동한다',
+        url: 'https://kids.donga.com/news/vv.php?id=2026103001',
+        thought: '인류가 쏘아 올린 수많은 인공위성 파편이 시속 2만 8000km로 지구 주위를 돌며 현역 위성을 위협하고 있다. 각국 우주기구는 그물과 로봇팔, 자석을 활용한 청소 위성 개발에 박차를 가하고 있으며 미래 세대의 우주 환경 보전 의식이 무엇보다 중요해지고 있다.',
+        illustType: 'space'
+      },
+      {
+        kicker: '기후 포커스',
+        author: '환경 전문기자',
+        title: '짧아진 가을과 늦어진 단풍, 한반도 사계절 시계가 변한다',
+        url: 'https://www.khan.co.kr/environment/climate/article/202610',
+        thought: '기상 관측 이래 여름 일수는 길어지고 가을은 눈에 띄게 짧아졌다. 전문가들은 일상 속 탄소중립 실천과 학교 현장의 친환경 습관이 기후 위기를 늦추는 가장 확실한 첫걸음이라고 강조한다.',
+        illustType: 'climate'
+      },
+      {
+        kicker: 'AI와 미래교육',
+        author: '특집 기획팀',
+        title: '생성형 AI 시대, 질문하는 힘과 독서가 미래 인재 가른다',
+        url: 'https://www.washingtonpost.com/technology/2026/ai-education/',
+        thought: '인공지능이 순식간에 답을 내놓는 시대일수록 신문기사를 비판적으로 읽고 자기만의 생각을 정리하는 문해력이 핵심 역량으로 꼽힌다. 친구들과 다른 관점을 나누는 토론이 AI가 대체할 수 없는 인간 고유의 창의성을 키운다.',
+        illustType: 'ai'
+      },
+      {
+        kicker: '생태 리포트',
+        author: '해양생태팀',
+        title: '플라스틱 없는 바다를 향해… 바다거북이 보낸 구조 신호',
+        url: 'https://kids.donga.com/news/environment/turtle-2026',
+        thought: '매년 바다로 흘러드는 일회용 플라스틱이 해양 생태계를 위협하고 있다. 다회용 컵 사용과 올바른 분리배출 등 학생들의 작은 실천이 모여 바다 생명을 지키는 큰 물결을 만든다.',
+        illustType: 'ocean'
+      },
+      {
+        kicker: '문화·독서',
+        author: '교육문화부',
+        title: '“하루 15분 아침 신문 읽기, 생각하는 근육을 키운다”',
+        url: 'https://www.khan.co.kr/culture/book/article/20261030',
+        thought: '짧고 자극적인 영상 매체에 익숙해진 청소년들에게 종이신문 읽기가 새로운 대안으로 주목받고 있다. 세상 소식을 읽고 자신의 언어로 한 단락 글을 쓰는 활동은 논리적 사고력을 크게 높여준다.',
+        illustType: 'book'
+      },
+      {
+        kicker: '우리동네 안전',
+        author: '사회부 종합',
+        title: '스쿨존 보행 중 스마트폰 멈춤! 안전한 등하굣길 함께 만든다',
+        url: 'https://kids.donga.com/news/society/schoolzone',
+        thought: '어린이 보호구역 내 교통사고를 예방하기 위해 운전자 서행뿐 아니라 보행 중 스마트폰 사용 자제 캠페인이 확산되고 있다. 건널목 앞 일단 멈춤과 좌우 살피기가 안전의 출발점이다.',
+        illustType: 'safety'
+      }
+    ];
+
+    // 초기 6명 학생 입력 데이터
+    let entries = [
+      {
+        author: '김민준',
+        title: '우주 쓰레기 문제, 지금 해결하지 않으면 우리의 미래가 위험하다',
+        url: 'https://kids.donga.com/news/vv.php?id=2026103001',
+        thought: '신문기사를 읽고 지구 주변에 고장 난 인공위성과 로켓 조각이 그렇게 많은지 처음 알았다. 우주 쓰레기를 치우는 청소 위성 기술이 빨리 발전해서 안전한 우주 탐사가 이어졌으면 좋겠다. 나도 우주 과학에 더 관심을 가져야겠다.',
+        imageUrl: ''
+      },
+      {
+        author: '이서연',
+        title: '기후 변화로 빨라진 계절 시계, 교실 속 작은 실천부터 시작하자',
+        url: 'https://www.khan.co.kr/environment/climate/article/202610',
+        thought: '예전보다 여름이 길어지고 가을이 짧아진 이유가 지구 온난화 때문이라는 기사를 보았다. 북극곰만의 문제가 아니라 우리 일상과 직결된 문제다. 급식 잔반 줄이기와 빈 교실 불 끄기부터 꾸준히 실천해야겠다고 다짐했다.',
+        imageUrl: ''
+      },
+      {
+        author: '박지호',
+        title: '인공지능(AI) 시대, 사람만이 할 수 있는 따뜻한 공감의 가치',
+        url: 'https://www.washingtonpost.com/technology/2026/ai-education/',
+        thought: 'AI가 그림도 그리고 글도 써주지만 친구의 마음을 위로하고 함께 협동하는 것은 사람만 할 수 있다고 생각한다. 기술을 똑똑하게 활용하되 마음은 더 따뜻한 사람이 되고 싶다.',
+        imageUrl: ''
+      },
+      {
+        author: '최수아',
+        title: '멸종 위기 바다거북을 살리는 친환경 빨대와 일회용품 줄이기',
+        url: 'https://kids.donga.com/news/environment/turtle-2026',
+        thought: '플라스틱 쓰레기 때문에 바다거북이 아파한다는 소식이 마음 아팠다. 조금 불편하더라도 텀블러를 가지고 다니고 일회용품 사용을 줄이는 습관이 바다 생명을 살리는 길이다.',
+        imageUrl: ''
+      },
+      {
+        author: '정우진',
+        title: '짧은 영상 대신 신문기사를 읽으니 생각하는 힘이 자란다',
+        url: 'https://www.khan.co.kr/culture/book/article/20261030',
+        thought: '평소 짧은 영상만 보다가 신문기사를 읽으니 처음엔 낯설었지만 내 생각을 깊이 정리하는 데 큰 도움이 되었다. 매일 아침 신문기사를 읽고 친구들과 생각을 나누고 싶다.',
+        imageUrl: ''
+      },
+      {
+        author: '한지민',
+        title: '안전한 등하굣길을 만드는 어린이 교통안전 약속',
+        url: 'https://kids.donga.com/news/society/schoolzone',
+        thought: '학교 앞 스쿨존에서 어른들의 안전 운전도 중요하지만, 우리 스스로도 스마트폰을 보면서 걷지 않고 초록불에도 좌우를 살피며 건너는 안전 약속을 꼭 지켜야겠다.',
+        imageUrl: ''
+      }
+    ];
+
+    function initDateLine() {
+      const now = new Date();
+      const days = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+      const formatted = `${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 ${days[now.getDay()]}`;
+      document.getElementById('dateLineInput').value = formatted;
+    }
+
+    function selectWelcomeTheme(theme) {
+      currentTheme = theme;
+      document.querySelectorAll('.theme-card').forEach(card => {
+        card.classList.toggle('selected', card.dataset.theme === theme);
+      });
+      setTheme(theme);
+    }
+
+    function closeWelcomeModal() {
+      document.getElementById('welcomeOverlay').classList.add('hidden');
+    }
+
+    function openWelcomeModal() {
+      document.getElementById('welcomeOverlay').classList.remove('hidden');
+    }
+
+    function setTheme(theme) {
+      currentTheme = theme;
+      document.querySelectorAll('.theme-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.theme === theme);
+      });
+      document.querySelectorAll('.theme-card').forEach(card => {
+        card.classList.toggle('selected', card.dataset.theme === theme);
+      });
+
+      updatePaperTone();
+      renderNewspaper();
+    }
+
+    function updatePaperTone() {
+      const sheet = document.getElementById('newspaperSheet');
+      const tone = document.getElementById('paperToneSelect').value;
+      sheet.className = `a4-sheet theme-${currentTheme}`;
+      if (tone === 'vintage') sheet.classList.add('paper-vintage');
+      if (tone === 'light') sheet.classList.add('paper-light');
+    }
+
+    // 좌측 입력칸 렌더링
+    function renderEditorInputs() {
+      const container = document.getElementById('entriesContainer');
+      document.getElementById('entryCountLabel').textContent = entries.length;
+
+      const slotNames = [
+        '1면 톱기사 (머리기사·사진)',
+        '1면 우측 오피니언 칼럼',
+        '중단 좌측 주요기사',
+        '중단 중앙 기획기사',
+        '중단 우측 포커스',
+        '하단 와이드 기사'
+      ];
+
+      container.innerHTML = entries.map((item, idx) => {
+        const slotDesc = slotNames[idx] || `추가 기사 ${idx + 1}단`;
+        const hasPhoto = Boolean(item.imageUrl && item.imageUrl.trim());
+        return `
+          <div class="entry-card">
+            <div class="entry-header">
+              <span class="entry-badge ${idx === 0 ? 'lead' : ''}">${idx + 1}번 · ${slotDesc}</span>
+              <div class="entry-header-inputs">
+                <input
+                  type="text"
+                  class="input-text"
+                  placeholder="학생 기자 이름 (예: 김민준)"
+                  value="${escapeHtml(item.author)}"
+                  oninput="updateEntry(${idx}, 'author', this.value)"
+                />
+              </div>
+              ${entries.length > 1 ? `
+                <button class="btn-remove" title="삭제" onclick="removeEntry(${idx})">✕</button>
+              ` : ''}
+            </div>
+
+            <div class="entry-row">
+              <label class="field-label">신문기사 URL 링크 (주소를 넣으면 기사 사진을 자동 추출합니다)</label>
+              <div class="url-input-group">
+                <input
+                  type="url"
+                  class="input-text"
+                  placeholder="https://... 읽은 기사 링크 붙여넣기"
+                  value="${escapeHtml(item.url)}"
+                  oninput="onUrlInput(${idx}, this.value)"
+                />
+                <button type="button" class="btn-fetch" id="fetchBtn-${idx}" onclick="fetchUrlMetadata(${idx}, false)" title="링크에서 실제 기사 사진과 제목을 추출합니다">
+                  📷 사진·제목 추출
+                </button>
+              </div>
+
+              ${hasPhoto ? `
+                <div class="extracted-photo-bar">
+                  <img src="${escapeHtml(item.imageUrl)}" alt="추출된 기사 사진" onerror="this.style.display='none'" />
+                  <span class="extracted-photo-info">✔ 기사 사진이 신문에 삽입되었습니다</span>
+                  <button type="button" class="btn-mini" onclick="removePhoto(${idx})">사진 빼기</button>
+                </div>
+              ` : `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+                  <span id="fetchStatus-${idx}" style="font-size:0.72rem; color:#57534e;">
+                    🔗 URL 입력 시 기사 속 대표 사진을 자동으로 가져옵니다.
+                  </span>
+                  <label class="btn-mini" style="cursor:pointer;">
+                    📁 직접 사진 넣기
+                    <input type="file" accept="image/*" style="display:none;" onchange="uploadLocalPhoto(${idx}, this)" />
+                  </label>
+                </div>
+              `}
+            </div>
+
+            <div class="entry-row">
+              <label class="field-label">헤드라인 제목 (비워두면 본문 첫 문장 또는 링크 기사 제목 사용)</label>
+              <input
+                type="text"
+                class="input-text"
+                placeholder="신문 헤드라인 제목"
+                value="${escapeHtml(item.title)}"
+                oninput="updateEntry(${idx}, 'title', this.value)"
+              />
+            </div>
+
+            <div class="entry-row">
+              <label class="field-label">기사를 읽고 쓴 나의 생각 (왼쪽 정렬로 글자 수에 맞춰 깔끔하게 조판됩니다)</label>
+              <textarea
+                class="textarea-input"
+                placeholder="기사를 읽고 느낀 점이나 의견을 작성하세요."
+                oninput="updateEntry(${idx}, 'thought', this.value)"
+              >${escapeHtml(item.thought)}</textarea>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateEntry(index, field, value) {
+      entries[index][field] = value;
+      renderNewspaper();
+    }
+
+    // URL 입력 시 자동으로 사진/제목 추출 (디바운스 적용)
+    function onUrlInput(index, value) {
+      entries[index].url = value;
+      renderNewspaper();
+
+      if (urlFetchTimers[index]) {
+        clearTimeout(urlFetchTimers[index]);
+      }
+      const trimmed = (value || '').trim();
+      if (trimmed.length > 10 && (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.includes('.'))) {
+        const statusEl = document.getElementById(`fetchStatus-${index}`);
+        if (statusEl) statusEl.textContent = '⏳ 입력한 링크에서 기사 사진을 찾는 중...';
+        urlFetchTimers[index] = setTimeout(() => {
+          fetchUrlMetadata(index, true);
+        }, 550);
+      }
+    }
+
+    function removePhoto(index) {
+      entries[index].imageUrl = '';
+      renderEditorInputs();
+      renderNewspaper();
+    }
+
+    function uploadLocalPhoto(index, inputEl) {
+      const file = inputEl.files && inputEl.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        entries[index].imageUrl = e.target.result;
+        renderEditorInputs();
+        renderNewspaper();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // 다단계 기사 사진 & 제목 추출기 (1차: Microlink API -> 2차: AllOrigins HTML 파싱으로 og:image, twitter:image, 본문 img 태그 추출)
+    async function fetchUrlMetadata(index, isSilent = false) {
+      const rawUrl = (entries[index].url || '').trim();
+      if (!rawUrl) {
+        if (!isSilent) alert('먼저 신문기사 링크(URL)를 입력해 주세요.');
+        return;
+      }
+      const targetUrl = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`;
+      const btn = document.getElementById(`fetchBtn-${index}`);
+      const statusEl = document.getElementById(`fetchStatus-${index}`);
+      if (btn) {
+        btn.textContent = '⏳ 사진 추출중..';
+        btn.disabled = true;
+      }
+
+      let foundImage = '';
+      let foundTitle = '';
+      let foundDesc = '';
+
+      // [1단계] Microlink API 조회
+      try {
+        const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(targetUrl)}`);
+        const json = await res.json();
+        if (json && json.status === 'success' && json.data) {
+          if (json.data.image && json.data.image.url) {
+            foundImage = json.data.image.url;
+          }
+          if (json.data.title) {
+            foundTitle = json.data.title;
+          }
+          if (json.data.description) {
+            foundDesc = json.data.description;
+          }
+        }
+      } catch (err) {
+        // 1단계 실패 시 2단계로 진행
+      }
+
+      // [2단계] 1단계에서 사진을 못 찾았을 경우 AllOrigins 프록시로 원문 HTML의 og:image / article img 직접 파싱
+      if (!foundImage) {
+        try {
+          const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+          const res2 = await fetch(proxyUrl);
+          const data2 = await res2.json();
+          if (data2 && data2.contents) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(data2.contents, 'text/html');
+
+            const ogImg =
+              doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
+              doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
+              doc.querySelector('meta[property="og:image:url"]')?.getAttribute('content') ||
+              doc.querySelector('article img')?.getAttribute('src') ||
+              doc.querySelector('.article_body img, .news_view img, #articleBody img')?.getAttribute('src');
+
+            if (ogImg) {
+              try {
+                foundImage = new URL(ogImg, targetUrl).href;
+              } catch {
+                foundImage = ogImg;
+              }
+            }
+
+            if (!foundTitle) {
+              foundTitle =
+                doc.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
+                doc.querySelector('title')?.textContent ||
+                '';
+            }
+          }
+        } catch (err2) {
+          // 2단계 실패 시 무시
+        }
+      }
+
+      if (foundImage) {
+        // 외부 신문사 이미지 핫링크/CORS 차단 방지용 프록시 URL 래핑 (원본 비율 유지)
+        entries[index].imageUrl = `https://wsrv.nl/?url=${encodeURIComponent(foundImage)}&w=800&output=jpg`;
+      }
+
+      if (foundTitle && !entries[index].title.trim()) {
+        entries[index].title = foundTitle.trim();
+      }
+
+      if (foundDesc && !entries[index].thought.trim() && !isSilent) {
+        entries[index].thought = foundDesc.trim();
+      }
+
+      renderEditorInputs();
+      renderNewspaper();
+
+      if (!foundImage) {
+        const newStatusEl = document.getElementById(`fetchStatus-${index}`);
+        if (newStatusEl) {
+          newStatusEl.textContent = '⚠ 해당 기사에 공개된 사진이 없거나 보안 제한이 있습니다. [직접 사진 넣기]도 가능합니다.';
+          newStatusEl.style.color = '#b45309';
+        }
+        if (!isSilent && !foundTitle) {
+          alert('해당 링크에서 사진을 찾지 못했습니다. 우측의 [📁 직접 사진 넣기] 버튼으로 이미지를 넣으실 수도 있습니다.');
+        }
+      }
+    }
+
+    function addEntry() {
+      const nextNum = entries.length + 1;
+      entries.push({
+        author: `학생 ${nextNum}`,
+        title: '',
+        url: '',
+        thought: '',
+        imageUrl: ''
+      });
+      renderEditorInputs();
+      renderNewspaper();
+    }
+
+    function removeEntry(index) {
+      if (entries.length <= 1) return;
+      entries.splice(index, 1);
+      renderEditorInputs();
+      renderNewspaper();
+    }
+
+    function clearAllEntries() {
+      entries = Array.from({ length: 6 }, () => ({
+        author: '',
+        title: '',
+        url: '',
+        thought: '',
+        imageUrl: ''
+      }));
+      renderEditorInputs();
+      renderNewspaper();
+    }
+
+    function loadSampleData() {
+      entries = [
+        {
+          author: '김민준',
+          title: '우주 쓰레기 문제, 지금 해결하지 않으면 우리의 미래가 위험하다',
+          url: 'https://kids.donga.com/news/vv.php?id=2026103001',
+          thought: '신문기사를 읽고 지구 주변에 고장 난 인공위성과 로켓 조각이 그렇게 많은지 처음 알았다. 우주 쓰레기를 치우는 청소 위성 기술이 빨리 발전해서 안전한 우주 탐사가 이어졌으면 좋겠다. 나도 우주 과학에 더 관심을 가져야겠다.',
+          imageUrl: ''
+        },
+        {
+          author: '이서연',
+          title: '기후 변화로 빨라진 계절 시계, 교실 속 작은 실천부터 시작하자',
+          url: 'https://www.khan.co.kr/environment/climate/article/202610',
+          thought: '예전보다 여름이 길어지고 가을이 짧아진 이유가 지구 온난화 때문이라는 기사를 보았다. 북극곰만의 문제가 아니라 우리 일상과 직결된 문제다. 급식 잔반 줄이기와 빈 교실 불 끄기부터 꾸준히 실천해야겠다고 다짐했다.',
+          imageUrl: ''
+        },
+        {
+          author: '박지호',
+          title: '인공지능(AI) 시대, 사람만이 할 수 있는 따뜻한 공감의 가치',
+          url: 'https://www.washingtonpost.com/technology/2026/ai-education/',
+          thought: 'AI가 그림도 그리고 글도 써주지만 친구의 마음을 위로하고 함께 협동하는 것은 사람만 할 수 있다고 생각한다. 기술을 똑똑하게 활용하되 마음은 더 따뜻한 사람이 되고 싶다.',
+          imageUrl: ''
+        },
+        {
+          author: '최수아',
+          title: '멸종 위기 바다거북을 살리는 친환경 빨대와 일회용품 줄이기',
+          url: 'https://kids.donga.com/news/environment/turtle-2026',
+          thought: '플라스틱 쓰레기 때문에 바다거북이 아파한다는 소식이 마음 아팠다. 조금 불편하더라도 텀블러를 가지고 다니고 일회용품 사용을 줄이는 습관이 바다 생명을 살리는 길이다.',
+          imageUrl: ''
+        },
+        {
+          author: '정우진',
+          title: '짧은 영상 대신 신문기사를 읽으니 생각하는 힘이 자란다',
+          url: 'https://www.khan.co.kr/culture/book/article/20261030',
+          thought: '평소 짧은 영상만 보다가 신문기사를 읽으니 처음엔 낯설었지만 내 생각을 깊이 정리하는 데 큰 도움이 되었다. 매일 아침 신문기사를 읽고 친구들과 생각을 나누고 싶다.',
+          imageUrl: ''
+        },
+        {
+          author: '한지민',
+          title: '안전한 등하굣길을 만드는 어린이 교통안전 약속',
+          url: 'https://kids.donga.com/news/society/schoolzone',
+          thought: '학교 앞 스쿨존에서 어른들의 안전 운전도 중요하지만, 우리 스스로도 스마트폰을 보면서 걷지 않고 초록불에도 좌우를 살피며 건너는 안전 약속을 꼭 지켜야겠다.',
+          imageUrl: ''
+        }
+      ];
+      renderEditorInputs();
+      renderNewspaper();
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function formatPressSource(url) {
+      if (!url || !url.trim()) return '본지 종합';
+      const u = url.toLowerCase();
+      if (u.includes('washingtonpost')) return '워싱턴포스트(WP) 원문 인용';
+      if (u.includes('kids.donga') || u.includes('donga')) return '어린이 00신문 원문 인용';
+      if (u.includes('khan.co.kr')) return '00신문 원문 인용';
+      if (u.includes('hani.co.kr')) return '한겨레 원문 인용';
+      if (u.includes('chosun.com')) return '조선일보 원문 인용';
+      if (u.includes('joongang')) return '중앙일보 원문 인용';
+      if (u.includes('kbs') || u.includes('imbc') || u.includes('sbs')) return '방송뉴스 원문 인용';
+      try {
+        const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+        return `${parsed.hostname.replace('www.', '')}`;
+      } catch {
+        return url.slice(0, 28);
+      }
+    }
+
+    // 신문 삽화/보도사진 생성기 (URL에서 추출된 사진이 있으면 최우선 삽입!)
+    function getEditorialIllustrationSVG(headline, imageUrl) {
+      if (imageUrl && imageUrl.trim()) {
+        return `<img src="${escapeHtml(imageUrl)}" alt="추출된 기사 보도사진" crossorigin="anonymous" onerror="this.parentElement.innerHTML='[보도사진]'" />`;
+      }
+      const text = headline || '';
+      if (text.includes('우주') || text.includes('위성') || text.includes('과학')) {
+        return `
+          <svg viewBox="0 0 260 140" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="background:#dfd5c0;">
+            <rect width="260" height="140" fill="#dfd5c0"/>
+            <circle cx="130" cy="115" r="78" fill="#c7bba2" stroke="#1c1917" stroke-width="2"/>
+            <ellipse cx="130" cy="70" rx="95" ry="26" fill="none" stroke="#1c1917" stroke-width="1.5" stroke-dasharray="4 3" transform="rotate(-14 130 70)"/>
+            <g transform="translate(88, 26) rotate(-18)">
+              <rect x="20" y="10" width="26" height="18" fill="#1c1917"/>
+              <rect x="0" y="13" width="18" height="12" fill="none" stroke="#1c1917" stroke-width="1.8"/>
+              <rect x="48" y="13" width="18" height="12" fill="none" stroke="#1c1917" stroke-width="1.8"/>
+              <line x1="33" y1="28" x2="33" y2="40" stroke="#1c1917" stroke-width="2"/>
+              <circle cx="33" cy="42" r="3" fill="#991b1b"/>
+            </g>
+            <circle cx="42" cy="30" r="2" fill="#1c1917"/>
+            <circle cx="215" cy="25" r="2.5" fill="#1c1917"/>
+            <circle cx="195" cy="52" r="1.8" fill="#1c1917"/>
+            <text x="12" y="130" font-family="serif" font-size="9" font-weight="bold" fill="#1c1917">[그래픽] 지구 저궤도 위성 및 우주 환경 모식도</text>
+          </svg>
+        `;
+      }
+      return `
+        <svg viewBox="0 0 260 140" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="background:#dfd5c0;">
+          <rect width="260" height="140" fill="#dfd5c0"/>
+          <g stroke="#1c1917" stroke-width="1.8" fill="none">
+            <rect x="28" y="18" width="90" height="102" fill="#efe8d8"/>
+            <line x1="38" y1="34" x2="108" y2="34" stroke-width="3.5"/>
+            <line x1="38" y1="46" x2="108" y2="46"/>
+            <line x1="38" y1="56" x2="108" y2="56"/>
+            <line x1="38" y1="66" x2="88" y2="66"/>
+            <rect x="38" y="76" width="70" height="32" fill="#c7bba2"/>
+            <circle cx="176" cy="64" r="36" fill="#efe8d8" stroke-width="2.2"/>
+            <path d="M142 64 H210 M176 28 V100" stroke-width="1.2"/>
+            <ellipse cx="176" cy="64" rx="18" ry="36" stroke-width="1.2"/>
+          </g>
+          <text x="128" y="122" font-family="serif" font-size="9.5" font-weight="bold" fill="#1c1917">NIE 시사 탐구 일러스트</text>
+        </svg>
+      `;
+    }
+
+    // 일반 슬롯(2~6번)에 추출된 사진이 있을 때 삽입할 사진 박스 HTML 생성
+    function renderSlotPhotoHTML(item) {
+      if (!item.imageUrl || !item.imageUrl.trim()) return '';
+      return `
+        <figure class="slot-photo-box">
+          <div class="halftone-img-wrap">
+            <img src="${escapeHtml(item.imageUrl)}" alt="기사 추출 사진" crossorigin="anonymous" onerror="this.closest('figure').style.display='none'" />
+          </div>
+          <figcaption class="figure-caption">▲ [보도사진] ${escapeHtml(item.sourceLabel)}</figcaption>
+        </figure>
+      `;
+    }
+
+    // 글자 수와 사진 유무에 따라 왼쪽 정렬이 흐트러지지 않는 최적 본문/제목 폰트 크기 자동 계산
+    function calcSlotFontSize(baseBodyPt, text, hasPhoto, scale) {
+      const len = (text || '').length;
+      let pt = baseBodyPt;
+
+      if (hasPhoto) {
+        // 사진이 들어가면 본문 공간을 고려해 글자 크기를 균형 있게 조정
+        if (len > 180) pt -= 1.2;
+        else if (len > 120) pt -= 0.7;
+      } else {
+        if (len < 70) pt += 0.6;
+        else if (len > 240) pt -= 1.1;
+        else if (len > 170) pt -= 0.6;
+      }
+
+      return Math.max(7.6, (pt * scale)).toFixed(1);
+    }
+
+    // 학생 입력 데이터 정규화
+    function getNormalizedSlotData(index) {
+      const raw = entries[index];
+      const fallback = fallbackNewsPool[index % fallbackNewsPool.length];
+
+      const hasStudentInput = raw && (
+        (raw.thought && raw.thought.trim().length > 0) ||
+        (raw.title && raw.title.trim().length > 0) ||
+        (raw.url && raw.url.trim().length > 0) ||
+        (raw.imageUrl && raw.imageUrl.trim().length > 0)
+      );
+
+      if (!hasStudentInput) {
+        return {
+          isFallback: true,
+          kicker: fallback.kicker,
+          author: fallback.author,
+          title: fallback.title,
+          url: fallback.url,
+          thought: fallback.thought,
+          sourceLabel: formatPressSource(fallback.url),
+          imageUrl: ''
+        };
+      }
+
+      const thoughtText = (raw.thought || '').trim() || fallback.thought;
+      let headline = (raw.title || '').trim();
+      if (!headline) {
+        const firstSentenceEnd = thoughtText.search(/[.?!\n]/);
+        if (firstSentenceEnd > 0 && firstSentenceEnd < 44) {
+          headline = thoughtText.slice(0, firstSentenceEnd + 1);
+        } else {
+          headline = thoughtText.slice(0, 30) + (thoughtText.length > 30 ? '…' : '');
+        }
+      }
+
+      const authorName = (raw.author || '').trim() || `학생논설위원 ${index + 1}`;
+      const kickers = ['1면 머리기사', '오피니언·시선', '심층 리포트', '특집 포커스', '기자 수첩', '화제의 뉴스'];
+
+      return {
+        isFallback: false,
+        kicker: kickers[index % kickers.length],
+        author: `${authorName} 학생기자`,
+        title: headline,
+        url: (raw.url || '').trim(),
+        thought: thoughtText,
+        sourceLabel: formatPressSource(raw.url),
+        imageUrl: (raw.imageUrl || '').trim()
+      };
+    }
+
+    // 각 신문 스타일별 고유 헤드라인(Masthead) HTML 생성
+    function buildMastheadHTML(subHeader, dateLine, slotDataList) {
+      const leadTitle = slotDataList[0]?.title || '학생이 읽은 세상 이야기';
+      const secondTitle = slotDataList[1]?.title || '교실에서 바라본 시사 이슈';
+
+      if (currentTheme === 'wp') {
+        return `
+          <header class="masthead-wp">
+            <div class="wp-top-meta">
+              <span>Gunsan Nam Elemetary Newspaper · PRINT EDITION</span>
+              <span>${escapeHtml(dateLine)}</span>
+              <span>${escapeHtml(subHeader)}</span>
+            </div>
+            <div class="wp-main-row">
+              <div class="wp-ear-box">
+                <strong>TODAY'S FOCUS</strong>
+                “기사를 읽고 스스로 질문하며 세상을 넓히는 남초일보 NIE 지면”
+              </div>
+              <div class="wp-center-titles">
+                <div class="wp-blackletter">Gunsan Nam Elemetary Newspaper</div>
+                <div class="wp-kor-title">남초일보</div>
+                <div class="wp-motto">Democracy Dies in Darkness · 독서와 사유가 미래를 밝힌다</div>
+              </div>
+              <div class="wp-ear-box" style="text-align:right;">
+                <strong>WEATHER &amp; INDEX</strong>
+                군산 맑음 18°C · 독서지수 ‘매우좋음’<br/>A1면 종합 · 특별판
+              </div>
+            </div>
+            <nav class="wp-section-bar">
+              <span>Election &amp; 학급자치</span><span class="divider">|</span>
+              <span>Politics · 시사</span><span class="divider">|</span>
+              <span>Opinions · 학생칼럼</span><span class="divider">|</span>
+              <span>Investigations · 심층탐구</span><span class="divider">|</span>
+              <span>Climate · 환경</span><span class="divider">|</span>
+              <span>Tech &amp; AI</span><span class="divider">|</span>
+              <span>World · 세계</span><span class="divider">|</span>
+              <span>Culture · 독서</span>
+            </nav>
+          </header>
+        `;
+      }
+
+      if (currentTheme === 'kids') {
+        return `
+          <header class="masthead-kids">
+            <div class="kids-top-strip">
+              <span>🌱 Gunsan Nam Elemetary Newspaper</span>
+              <span>${escapeHtml(dateLine)}</span>
+              <span>${escapeHtml(subHeader)}</span>
+            </div>
+            <div class="kids-main-box">
+              <div class="kids-mascot-ear">
+                <strong>🔎 오늘의 1면 특종</strong><br/>
+                ${escapeHtml(leadTitle.slice(0, 24))}...
+              </div>
+              <div class="kids-title-wrap">
+                <div class="kids-sub-pill">★ 어린이 00신문 스타일 NIE 특별판 ★</div>
+                <div class="kids-main-title">남초일보</div>
+                <div class="kids-eng-sub">Gunsan Nam Elemetary Newspaper</div>
+              </div>
+              <div class="kids-mascot-ear" style="border-color:#0284c7; background:#e0f2fe; color:#0c4a6e;">
+                <strong>💡 생각 쑥쑥 질문</strong><br/>
+                기사를 읽고 내 생각 한 줄을 친구와 나눠요!
+              </div>
+            </div>
+            <div class="kids-section-ribbon">
+              <span>🌍 시사·뉴스</span>
+              <span>🔬 과학·우주</span>
+              <span>🌿 기후·생태</span>
+              <span>📚 독서·논술</span>
+              <span>🎨 만평·퀴즈</span>
+            </div>
+          </header>
+        `;
+      }
+
+      // 00신문 스타일 (khan)
+      return `
+        <header class="masthead-khan">
+          <div class="khan-top-bar">
+            <span>Gunsan Nam Elemetary Newspaper</span>
+            <span>00신문 스타일 정론직필 학생언론 · 지면 조판</span>
+            <span>제1면 (종합·비평)</span>
+          </div>
+          <div class="khan-body-row">
+            <div class="khan-title-block">
+              <div class="khan-kor-logo">남초일보</div>
+              <div class="khan-eng-sub">Gunsan Nam Elemetary Newspaper</div>
+            </div>
+            <div class="khan-headline-preview-box">
+              <div class="khan-preview-item"><strong>[머리기사]</strong> ${escapeHtml(leadTitle)}</div>
+              <div class="khan-preview-item"><strong>[집중비평]</strong> ${escapeHtml(secondTitle)}</div>
+            </div>
+            <div class="khan-ear-ad">
+              <strong>[오늘의 날씨와 지면]</strong><br/>
+              맑음 · 낮 최고 19°C<br/>
+              학생 원고 + 시사 브리핑 통합판
+            </div>
+          </div>
+          <div class="khan-dateline-strip">
+            <span>${escapeHtml(dateLine)}</span>
+            <span>${escapeHtml(subHeader)}</span>
+            <span>발행인: 남초일보 편집위원회</span>
+          </div>
+        </header>
+      `;
+    }
+
+    // 핵심 문장 추출 (발문 / Pull Quote 용)
+    function extractPullQuote(text) {
+      if (!text) return '“신문기사를 통해 세상을 읽고 나의 생각을 키웁니다”';
+      const sentences = text.split(/(?<=[.?!])\s+/).filter(Boolean);
+      const pick = sentences.length > 1 ? sentences[sentences.length - 1] : sentences[0];
+      const clipped = pick.length > 48 ? pick.slice(0, 48) + '…' : pick;
+      return `“${clipped}”`;
+    }
+
+    // 전체 A4 신문 렌더링
+    function renderNewspaper() {
+      const sheet = document.getElementById('newspaperSheet');
+      const subHeader = document.getElementById('subHeaderInput').value || '남초일보 NIE 특별판';
+      const dateLine = document.getElementById('dateLineInput').value || '';
+      const fontSizeMode = document.getElementById('fontSizeMode').value;
+
+      const slotData = Array.from({ length: Math.max(6, entries.length) }, (_, i) => getNormalizedSlotData(i));
+
+      let scale = 1.0;
+      if (fontSizeMode === 'large') scale = 1.08;
+      if (fontSizeMode === 'medium') scale = 0.94;
+
+      const lead = slotData[0];
+      const sideTop = slotData[1];
+      const midLeft = slotData[2];
+      const midCenter = slotData[3];
+      const midRight = slotData[4];
+      const botLeft = slotData[5];
+
+      const mastheadHtml = buildMastheadHTML(subHeader, dateLine, slotData);
+
+      // 7명 이상 입력했을 때 하단에 추가 단 배치
+      let extraArticlesHtml = '';
+      if (entries.length > 6) {
+        const extras = slotData.slice(6);
+        extraArticlesHtml = `
+          <section class="extra-deck">
+            ${extras.map((item, idx) => `
+              <article class="np-slot no-bottom-border ${idx === extras.length - 1 ? 'no-right-border' : ''}">
+                <div>
+                  <span class="kicker-tag kicker-outline">${escapeHtml(item.kicker)}</span>
+                  <h3 class="article-headline" style="font-size:${(11.2 * scale).toFixed(1)}pt;">${escapeHtml(item.title)}</h3>
+                  ${renderSlotPhotoHTML(item)}
+                  <div class="article-body" style="font-size:${calcSlotFontSize(8.8, item.thought, Boolean(item.imageUrl), scale)}pt;">${escapeHtml(item.thought)}</div>
+                </div>
+                <div class="byline-bar">
+                  <span class="byline-author">✒ ${escapeHtml(item.author)}</span>
+                  <span class="byline-source">🔗 ${escapeHtml(item.sourceLabel)}</span>
+                </div>
+              </article>
+            `).join('')}
+          </section>
+        `;
+      }
+
+      sheet.innerHTML = `
+        ${mastheadHtml}
+
+        <!-- 비대칭 12단 실제 신문 1면 그리드 (모든 기사 본문 왼쪽 정렬 고정) -->
+        <section class="np-frontpage">
+
+          <!-- [슬롯 1] 좌상단 8단 톱기사 (머리기사 + 추출 보도사진/일러스트 + 왼쪽 정렬 본문) -->
+          <article class="np-slot slot-lead">
+            <div>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.8mm;">
+                <span class="kicker-tag">${escapeHtml(lead.kicker)}</span>
+                <span style="font-size:7pt; font-weight:700; color:#57524a;">🔗 출처: ${escapeHtml(lead.sourceLabel)}</span>
+              </div>
+              <h1 class="article-headline" style="font-size:${(17.5 * scale).toFixed(1)}pt;">
+                ${escapeHtml(lead.title)}
+              </h1>
+              <div class="article-subhead">
+                ${escapeHtml(extractPullQuote(lead.thought))}
+              </div>
+
+              <div class="lead-content-grid">
+                <figure class="newspaper-figure">
+                  <div class="halftone-img-wrap">
+                    ${getEditorialIllustrationSVG(lead.title, lead.imageUrl)}
+                  </div>
+                  <figcaption class="figure-caption">
+                    ▲ <strong>[1면 포커스]</strong> ${escapeHtml(lead.author)}이(가) 분석한 ‘${escapeHtml(lead.sourceLabel)}’ 보도 사진 자료.
+                  </figcaption>
+                </figure>
+
+                <div class="article-body" style="font-size:${calcSlotFontSize(9.8, lead.thought, false, scale)}pt;">${escapeHtml(lead.thought)}</div>
+              </div>
+            </div>
+
+            <div class="byline-bar">
+              <span class="byline-author">✒ ${escapeHtml(lead.author)}</span>
+              <a class="byline-source" href="${escapeHtml(lead.url || '#')}" target="_blank" rel="noopener">
+                원문링크: ${escapeHtml(lead.url || '본지 아카이브')}
+              </a>
+            </div>
+          </article>
+
+          <!-- [슬롯 2] 우상단 4단 오피니언 / 사설 박스 -->
+          <article class="np-slot slot-side-top no-right-border">
+            <div>
+              <span class="kicker-tag">${escapeHtml(sideTop.kicker)}</span>
+              <h2 class="article-headline" style="font-size:${(13.2 * scale).toFixed(1)}pt;">
+                ${escapeHtml(sideTop.title)}
+              </h2>
+              ${sideTop.imageUrl
+                ? renderSlotPhotoHTML(sideTop)
+                : `<div class="pull-quote">${escapeHtml(extractPullQuote(sideTop.thought))}</div>`
+              }
+              <div class="article-body" style="font-size:${calcSlotFontSize(9.4, sideTop.thought, Boolean(sideTop.imageUrl), scale)}pt;">${escapeHtml(sideTop.thought)}</div>
+            </div>
+
+            <div class="byline-bar">
+              <span class="byline-author">✒ ${escapeHtml(sideTop.author)}</span>
+              <span class="byline-source">${escapeHtml(sideTop.sourceLabel)}</span>
+            </div>
+          </article>
+
+          <!-- [슬롯 3] 중단 좌측 5단 기사 (단일 칼럼 왼쪽 정렬로 글자 흩어짐 완벽 방지) -->
+          <article class="np-slot slot-mid-left">
+            <div>
+              <span class="kicker-tag kicker-outline">${escapeHtml(midLeft.kicker)}</span>
+              <h2 class="article-headline" style="font-size:${(13.2 * scale).toFixed(1)}pt;">
+                ${escapeHtml(midLeft.title)}
+              </h2>
+              ${renderSlotPhotoHTML(midLeft)}
+              <div class="article-body" style="font-size:${calcSlotFontSize(9.4, midLeft.thought, Boolean(midLeft.imageUrl), scale)}pt;">${escapeHtml(midLeft.thought)}</div>
+            </div>
+
+            <div class="byline-bar">
+              <span class="byline-author">✒ ${escapeHtml(midLeft.author)}</span>
+              <span class="byline-source">🔗 ${escapeHtml(midLeft.sourceLabel)}</span>
+            </div>
+          </article>
+
+          <!-- [슬롯 4] 중단 중앙 4단 기사 -->
+          <article class="np-slot slot-mid-center">
+            <div>
+              <span class="kicker-tag kicker-outline">${escapeHtml(midCenter.kicker)}</span>
+              <h2 class="article-headline" style="font-size:${(12.8 * scale).toFixed(1)}pt;">
+                ${escapeHtml(midCenter.title)}
+              </h2>
+              ${renderSlotPhotoHTML(midCenter)}
+              <div class="article-body" style="font-size:${calcSlotFontSize(9.2, midCenter.thought, Boolean(midCenter.imageUrl), scale)}pt;">${escapeHtml(midCenter.thought)}</div>
+            </div>
+
+            <div class="byline-bar">
+              <span class="byline-author">✒ ${escapeHtml(midCenter.author)}</span>
+              <span class="byline-source">🔗 ${escapeHtml(midCenter.sourceLabel)}</span>
+            </div>
+          </article>
+
+          <!-- [슬롯 5] 중단 우측 3단 기사 -->
+          <article class="np-slot slot-mid-right no-right-border">
+            <div>
+              <span class="kicker-tag">${escapeHtml(midRight.kicker)}</span>
+              <h2 class="article-headline" style="font-size:${(12.0 * scale).toFixed(1)}pt;">
+                ${escapeHtml(midRight.title)}
+              </h2>
+              ${renderSlotPhotoHTML(midRight)}
+              <div class="article-body" style="font-size:${calcSlotFontSize(9.0, midRight.thought, Boolean(midRight.imageUrl), scale)}pt;">${escapeHtml(midRight.thought)}</div>
+            </div>
+
+            <div class="byline-bar">
+              <span class="byline-author">✒ ${escapeHtml(midRight.author)}</span>
+              <span class="byline-source">${escapeHtml(midRight.sourceLabel)}</span>
+            </div>
+          </article>
+
+          <!-- [슬롯 6] 하단 좌측·중앙 9단 와이드 기획 기사 -->
+          <article class="np-slot slot-bot-left no-bottom-border">
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="kicker-tag">${escapeHtml(botLeft.kicker)} · 와이드 분석</span>
+                <span style="font-size:7pt; font-weight:700; color:#44403c;">원문: ${escapeHtml(botLeft.url || botLeft.sourceLabel)}</span>
+              </div>
+              <h2 class="article-headline" style="font-size:${(13.8 * scale).toFixed(1)}pt; margin-top:0.6mm;">
+                ${escapeHtml(botLeft.title)}
+              </h2>
+              ${botLeft.imageUrl ? `
+                <div class="wide-with-photo">
+                  <figure class="newspaper-figure">
+                    <div class="halftone-img-wrap">
+                      <img src="${escapeHtml(botLeft.imageUrl)}" alt="기사 추출 사진" crossorigin="anonymous" onerror="this.closest('figure').style.display='none'" />
+                    </div>
+                    <figcaption class="figure-caption">▲ [보도사진] ${escapeHtml(botLeft.sourceLabel)}</figcaption>
+                  </figure>
+                  <div class="article-body" style="font-size:${calcSlotFontSize(9.4, botLeft.thought, false, scale)}pt;">${escapeHtml(botLeft.thought)}</div>
+                </div>
+              ` : `
+                <div style="display:grid; grid-template-columns: 2.1fr 1fr; gap:3mm; align-items:start;">
+                  <div class="article-body" style="font-size:${calcSlotFontSize(9.4, botLeft.thought, false, scale)}pt;">${escapeHtml(botLeft.thought)}</div>
+                  <div style="border:1px solid #2b2823; padding:1.8mm 2.2mm; background:rgba(0,0,0,0.04); font-size:7.5pt; line-height:1.38; text-align:left;">
+                    <strong style="display:block; border-bottom:1px solid #2b2823; padding-bottom:0.6mm; margin-bottom:1mm;">📌 [편집자 주 · NIE 돋보기]</strong>
+                    신문기사를 읽고 자신의 관점으로 재해석하는 활동은 정보의 홍수 속에서 핵심을 짚어내는 비판적 사고력을 길러줍니다.
+                  </div>
+                </div>
+              `}
+            </div>
+
+            <div class="byline-bar">
+              <span class="byline-author">✒ ${escapeHtml(botLeft.author)}</span>
+              <span class="byline-source">🔗 ${escapeHtml(botLeft.sourceLabel)}</span>
+            </div>
+          </article>
+
+          <!-- [슬롯 7] 하단 우측 3단 실제 신문 고정 코너 (시사 만평 & 신문 바코드) -->
+          <aside class="np-slot slot-bot-right no-right-border no-bottom-border">
+            <div class="filler-box">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="kicker-tag">남초일보 만평</span>
+                <span style="font-size:6.5pt; font-weight:700;">화백: 편집부</span>
+              </div>
+
+              <div class="cartoon-frame">
+                <svg viewBox="0 0 160 72" width="100%" height="58" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="2" y="2" width="156" height="68" fill="none" stroke="#1c1917" stroke-width="1"/>
+                  <circle cx="45" cy="36" r="16" fill="#efe8d8" stroke="#1c1917" stroke-width="1.6"/>
+                  <circle cx="40" cy="33" r="2" fill="#1c1917"/>
+                  <circle cx="50" cy="33" r="2" fill="#1c1917"/>
+                  <path d="M40 42 Q45 47 50 42" fill="none" stroke="#1c1917" stroke-width="1.5"/>
+                  <rect x="68" y="14" width="78" height="38" rx="6" fill="#fff" stroke="#1c1917" stroke-width="1.3"/>
+                  <text x="107" y="31" font-size="8" font-weight="bold" text-anchor="middle" fill="#1c1917">“기사를 읽으니</text>
+                  <text x="107" y="43" font-size="8" font-weight="bold" text-anchor="middle" fill="#991b1b">세상이 보여요!”</text>
+                </svg>
+                <div style="font-size:6.8pt; font-weight:700; color:#1c1917;">
+                  “링크 하나로 연결된 교실과 세상”
+                </div>
+              </div>
+
+              <div class="barcode-strip">
+                <div>
+                  <div style="font-weight:900; letter-spacing:1.5px; font-size:9pt; line-height:1;">||| | |||| || | ||| ||||</div>
+                  <div>ISSN 2026-1030 · 남초일보</div>
+                </div>
+                <div style="text-align:right; font-family:'Noto Sans KR',sans-serif; font-weight:800;">
+                  비매품<br/>교육용
+                </div>
+              </div>
+            </div>
+          </aside>
+
+        </section>
+
+        ${extraArticlesHtml}
+
+        <footer class="np-footer">
+          <span>발행처: 군산남초등학교 · 제호: 남초일보 (Gunsan Nam Elemetary Newspaper)</span>
+          <span>본 지면은 학생들이 직접 선정한 신문기사 링크와 비평문을 바탕으로 조판되었습니다.</span>
+          <span>A1면 (종이신문 재현판)</span>
+        </footer>
+      `;
+    }
+
+    // PDF 파일로 즉시 다운로드
+    async function downloadPDF() {
+      const btn = document.getElementById('downloadPdfBtn');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '⏳ PDF 조판 중...';
+      btn.disabled = true;
+
+      try {
+        const sheet = document.getElementById('newspaperSheet');
+        const today = new Date().toISOString().slice(0, 10);
+        const opt = {
+          margin: 0,
+          filename: `남초일보_${today}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: {
+            scale: 2.5,
+            useCORS: true,
+            letterRendering: true,
+            scrollY: 0
+          },
+          jsPDF: {
+            unit: 'mm',
+            format: 'a4',
+            orientation: 'portrait'
+          },
+          pagebreak: { mode: ['avoid-all'] }
+        };
+
+        await html2pdf().set(opt).from(sheet).save();
+      } catch (err) {
+        alert('PDF 변환 중 오류가 발생해 브라우저 인쇄 창을 엽니다. [PDF로 저장]을 선택해 주세요.');
+        window.print();
+      } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }
+    }
+
+    // 초기 실행
+    initDateLine();
+    renderEditorInputs();
+    renderNewspaper();
+  </script>
+</body>
+</html>
